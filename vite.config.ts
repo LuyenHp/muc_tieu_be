@@ -13,7 +13,7 @@ export default defineConfig({
       manifest: {
         name: 'Bé Ngoan Mỗi Ngày',
         short_name: 'Bé Ngoan',
-        description: 'Bé Ngoan Mỗi Ngày - App theo dõi mục tiêu cho bé',
+        description: 'Bé Ngoan Mỗi Ngày - App theo dõi mục tiêu cho bé.',
         theme_color: '#FF6B6B',
         icons: [
           {
