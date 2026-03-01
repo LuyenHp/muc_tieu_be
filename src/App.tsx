@@ -171,6 +171,11 @@ const App: React.FC = () => {
 
         // Phát âm thanh đạt mục tiêu nếu vượt ngưỡng 80% lần đầu
         if (newPercentage >= 80 && !hasPlayedGoalSfx) {
+          // Tạm dừng nhạc nền để làm nổi bật âm thanh chiến thắng
+          if (bgMusicRef.current) {
+            bgMusicRef.current.pause();
+          }
+
           if (goalSfxRef.current) {
             goalSfxRef.current.currentTime = 0;
             goalSfxRef.current.play().catch(() => { });
