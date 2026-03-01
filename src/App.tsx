@@ -31,18 +31,20 @@ const App: React.FC = () => {
     // Chúng ta sẽ dùng các file local mà người dùng sẽ tự thêm vào public/audio/
     if (bgMusicRef.current && successSfxRef.current && goalSfxRef.current) return;
 
+    const baseUrl = import.meta.env.BASE_URL;
+
     // Nhạc nền
-    const bg = new Audio('/audio/bg-music.mp3');
+    const bg = new Audio(`${baseUrl}audio/bg-music.mp3`);
     bg.loop = true;
     bg.volume = 0.25;
     bgMusicRef.current = bg;
 
     // Âm thanh khi tích điểm thành công
-    const sfx = new Audio('/audio/success.wav');
+    const sfx = new Audio(`${baseUrl}audio/success.wav`);
     successSfxRef.current = sfx;
 
     // Âm thanh khi đạt mục tiêu (80%)
-    const goal = new Audio('/audio/goal.mp3');
+    const goal = new Audio(`${baseUrl}audio/goal.mp3`);
     goalSfxRef.current = goal;
   };
 
