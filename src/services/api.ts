@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Replace with your Web App URL after deploying Google Apps Script
-const API_URL: string = 'https://script.google.com/macros/s/AKfycbzGY3Wcg7k9zLkDnRsIjCzEO7Vzz8GFWgKJhGsH4CJyqVvRS-VkRorfZ_WhFAf0Nc4H/exec';
+const API_URL: string = 'https://script.google.com/macros/s/AKfycbyNmXx0qBfi2nN7aybXhtHDvlaJB1IQGIh-E5TIHq4X4KUJeXZyjiO1-elFZAvKIMDc/exec';
 
 export interface Task {
     id: number;
@@ -16,11 +16,13 @@ export interface ChildInfo {
     rewardName: string;
     rewardImage: string;
     avatarUrl?: string;
+    passcode?: string;
 }
 
 export interface Child {
     name: string;
     avatarUrl?: string;
+    passcode?: string;
 }
 
 export const fetchChildren = async (): Promise<Child[]> => {

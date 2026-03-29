@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Star, RefreshCcw, Loader2, ChevronLeft, User, Plus, Trash2, Save, X, Search, Calendar, Gift, Trophy, Upload, Image as ImageIcon, Edit2, Volume2, VolumeX } from 'lucide-react';
+import { Check, Star, RefreshCcw, Loader2, ChevronLeft, User, Plus, Trash2, Save, X, Search, Calendar, Gift, Trophy, Upload, Image as ImageIcon, Edit2, Volume2, VolumeX, Lock } from 'lucide-react';
 import { type Task, type ChildInfo, fetchTasks, updateTaskStatus, fetchChildren, createChild, updateChildProfile } from './services/api';
 import { compressImage } from './services/imageUtils';
 import './index.css';
@@ -8,7 +8,7 @@ import './index.css';
 const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 const App: React.FC = () => {
-  const [children, setChildren] = useState<{ name: string; avatarUrl?: string }[]>([]);
+  const [children, setChildren] = useState<{ name: string; avatarUrl?: string; passcode?: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -19,6 +19,10 @@ const App: React.FC = () => {
   const [isNewWeek, setIsNewWeek] = useState(false);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true); // Default to true
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [verifyingChild, setVerifyingChild] = useState<{ name: string; avatarUrl?: string; passcode?: string } | null>(null);
+  const [pinError, setPinError] = useState(false);
 
 
   // Audio references to prevent re-creation
@@ -101,7 +105,8 @@ const App: React.FC = () => {
     endDate: '',
     rewardName: '',
     rewardImage: '',
-    avatarUrl: ''
+    avatarUrl: '',
+    passcode: ''
   });
 
   const loadChildren = async () => {
@@ -206,10 +211,12 @@ const App: React.FC = () => {
     setFormName(selectedChild);
     setFormTasks(tasks.map(t => ({ title: t.title, imageUrl: t.imageUrl })));
     setFormInfo({
-      startDate: '', // Cần thiết lập lại ngày cho tuần mới
+      startDate: '',
       endDate: '',
-      rewardName: '', // Phần thưởng mỗi tuần sẽ khác
-      rewardImage: ''
+      rewardName: '',
+      rewardImage: '',
+      avatarUrl: childInfo.avatarUrl || '',
+      passcode: childInfo.passcode || ''
     });
     setIsNewWeek(true);
     setIsEditing(true);
@@ -261,12 +268,67 @@ const App: React.FC = () => {
       // Reset form
       setFormName('');
       setFormTasks([{ title: '', imageUrl: '' }]);
-      setFormInfo({ startDate: '', endDate: '', rewardName: '', rewardImage: '', avatarUrl: '' });
+      setFormInfo({ startDate: '', endDate: '', rewardName: '', rewardImage: '', avatarUrl: '', passcode: '' });
     } catch (error) {
       console.error('Submit failed', error);
       alert('Lỗi khi lưu thông tin');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectChild = async (child: { name: string; avatarUrl?: string; passcode?: string }) => {
+    setLoading(true);
+    try {
+      // Tải thông tin chi tiết từ server để kiểm tra mã PIN mới nhất
+      const result = await fetchTasks(child.name);
+      const serverInfo = result.info;
+
+      if (serverInfo?.passcode) {
+        setVerifyingChild({ ...child, passcode: serverInfo.passcode });
+        // Lưu trước dữ liệu để khi nhập xong PIN là hiện ra luôn
+        setTasks(result.tasks);
+        setChildInfo(serverInfo);
+        setIsVerifyingPin(true);
+        setPinInput('');
+        setPinError(false);
+      } else {
+        // Không có mã, vào thẳng
+        setTasks(result.tasks);
+        setChildInfo(serverInfo);
+        setSelectedChild(child.name);
+      }
+    } catch (e) {
+      console.error('Verify failed', e);
+      alert('Lỗi khi tải thông tin bé');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePinSubmit = (val?: string) => {
+    const finalPin = val || pinInput;
+    if (!verifyingChild) return;
+
+    if (finalPin === verifyingChild.passcode) {
+      setSelectedChild(verifyingChild.name);
+      setIsVerifyingPin(false);
+      setVerifyingChild(null);
+      setPinInput('');
+    } else {
+      setPinError(true);
+      setTimeout(() => setPinError(false), 500);
+      setPinInput('');
+    }
+  };
+
+  const handlePinKeyClick = (num: string) => {
+    if (pinInput.length < 4) {
+      const newPin = pinInput + num;
+      setPinInput(newPin);
+      if (newPin.length === 4) {
+        setTimeout(() => handlePinSubmit(newPin), 300);
+      }
     }
   };
 
@@ -285,6 +347,101 @@ const App: React.FC = () => {
       <div className="app-container" style={{ justifyContent: 'center' }}>
         <Loader2 className="animate-spin" size={64} color="var(--primary)" />
         <p>Đang tải danh sách...</p>
+      </div>
+    );
+  }
+
+  if (isVerifyingPin && verifyingChild) {
+    return (
+      <div 
+        className="app-container" 
+        style={{ 
+          justifyContent: 'center', 
+          background: 'rgba(255,107,107,0.1)', 
+          backdropFilter: 'blur(10px)',
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          zIndex: 1000 
+        }}
+      >
+        <motion.div
+          className="card magical-card"
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{
+            scale: 1,
+            opacity: 1,
+            x: pinError ? [0, -10, 10, -10, 10, 0] : 0
+          }}
+          transition={{ duration: pinError ? 0.4 : 0.3 }}
+          style={{ maxWidth: '400px', width: '100%', padding: '40px', border: '8px solid white', textAlign: 'center', position: 'relative' }}
+        >
+          <button
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.05)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            onClick={() => { setIsVerifyingPin(false); setVerifyingChild(null); setPinInput(''); }}
+          >
+            <X size={20} color="#666" />
+          </button>
+
+          <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+            {verifyingChild.avatarUrl ? (
+              <img src={verifyingChild.avatarUrl} alt="Avatar" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '4px solid white', boxShadow: '0 5px 15px rgba(0,0,0,0.1)' }} />
+            ) : (
+              <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--secondary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={50} /></div>
+            )}
+          </div>
+
+          <h2 style={{ color: 'var(--primary)', marginBottom: '10px', fontSize: '1.8rem', fontWeight: 900 }}>Chào Bé {verifyingChild.name}!</h2>
+          <p style={{ color: '#666', marginBottom: '30px', fontWeight: 600 }}>Nhập mã khóa bí mật của riêng bé nhé 🤫</p>
+
+          <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginBottom: '40px' }}>
+            {[0, 1, 2, 3].map(i => (
+              <motion.div
+                key={i}
+                animate={pinInput.length > i ? { scale: [1, 1.2, 1] } : {}}
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: pinInput.length > i ? 'var(--primary)' : 'white',
+                  border: '3px solid #eee',
+                  boxShadow: pinInput.length > i ? '0 0 15px var(--primary)' : 'inset 0 2px 5px rgba(0,0,0,0.05)',
+                  transition: 'background 0.2s'
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'X', '0', 'OK'].map(key => (
+              <button
+                key={key}
+                className="btn-kid"
+                onClick={() => {
+                  if (key === 'X') setPinInput(pinInput.slice(0, -1));
+                  else if (key === 'OK') handlePinSubmit();
+                  else handlePinKeyClick(key);
+                }}
+                style={{
+                  height: '65px',
+                  fontSize: '1.4rem',
+                  fontWeight: 900,
+                  background: key === 'OK' ? 'var(--success)' : (key === 'X' ? '#eee' : 'white'),
+                  color: key === 'OK' ? 'white' : (key === 'X' ? '#666' : 'var(--text)'),
+                  padding: 0,
+                  borderBottom: key === 'OK' ? '6px solid #4a9e52' : '4px solid #ddd',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {key === 'OK' ? <Check size={28} /> : (key === 'X' ? <ChevronLeft size={28} /> : key)}
+              </button>
+            ))}
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -340,6 +497,22 @@ const App: React.FC = () => {
             <div className="form-group">
               <label style={{ display: 'block', marginBottom: '10px', fontWeight: 800, fontSize: '1.1rem', color: '#555' }}>Ngày kết thúc:</label>
               <input type="date" className="btn-kid" style={{ width: '100%', border: '4px solid #eee', background: 'white', cursor: 'text', justifyContent: 'flex-start', padding: '15px 25px' }} value={formInfo.endDate} onChange={e => setFormInfo({ ...formInfo, endDate: e.target.value })} />
+            </div>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', marginBottom: '10px', fontWeight: 800, fontSize: '1.1rem', color: '#555' }}>Mã khóa bảo mật (4 số - Tùy chọn):</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="password"
+                  maxLength={4}
+                  className="btn-kid"
+                  style={{ width: '100%', border: '4px solid #eee', background: 'white', cursor: 'text', justifyContent: 'flex-start', padding: '15px 25px', letterSpacing: '10px', fontSize: '1.5rem' }}
+                  placeholder="****"
+                  value={formInfo.passcode}
+                  onChange={e => setFormInfo({ ...formInfo, passcode: e.target.value.replace(/\D/g, '') })}
+                />
+                <Lock size={20} style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
+              </div>
+              <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '5px' }}>Nếu cài mã, chỉ người biết mã mới có thể vào xem bảng của bé.</p>
             </div>
 
             <div style={{ gridColumn: '1 / -1' }}>
@@ -502,7 +675,7 @@ const App: React.FC = () => {
               whileHover={{ scale: 1.05, rotate: 2 }}
               whileTap={{ scale: 0.95 }}
               className="card magical-card"
-              onClick={() => setSelectedChild(child.name)}
+              onClick={() => handleSelectChild(child)}
               style={{ textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', padding: '30px', border: '6px solid white' }}
             >
               <div style={{ position: 'relative' }}>
@@ -511,6 +684,11 @@ const App: React.FC = () => {
                 ) : (
                   <div style={{ width: '130px', height: '130px', borderRadius: '50%', background: 'var(--secondary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px rgba(78, 205, 196, 0.3)' }}>
                     <User size={64} />
+                  </div>
+                )}
+                {child.passcode && (
+                  <div style={{ position: 'absolute', top: '0', right: '0', background: 'var(--primary)', color: 'white', padding: '8px', borderRadius: '50%', border: '3px solid white', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                    <Lock size={16} />
                   </div>
                 )}
                 <div style={{ position: 'absolute', bottom: '0', right: '0', background: 'var(--accent)', color: 'var(--text)', padding: '8px', borderRadius: '50%', border: '3px solid white', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
@@ -529,7 +707,7 @@ const App: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="card"
-            onClick={() => { setIsAddingChild(true); setFormName(''); setFormTasks([{ title: '', imageUrl: '' }]); setFormInfo({ startDate: '', endDate: '', rewardName: '', rewardImage: '', avatarUrl: '' }); }}
+            onClick={() => { setIsAddingChild(true); setFormName(''); setFormTasks([{ title: '', imageUrl: '' }]); setFormInfo({ startDate: '', endDate: '', rewardName: '', rewardImage: '', avatarUrl: '', passcode: '' }); }}
             style={{ textAlign: 'center', cursor: 'pointer', border: '6px dashed rgba(255,255,255,0.8)', background: 'rgba(255,255,255,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', padding: '30px' }}
           >
             <div style={{ background: 'white', padding: '25px', borderRadius: '50%', boxShadow: '0 10px 20px rgba(0,0,0,0.05)' }}>
