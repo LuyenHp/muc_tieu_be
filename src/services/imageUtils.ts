@@ -11,8 +11,8 @@ export const compressImage = (file: File): Promise<string> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 400; // Tăng lên 400px để hình ảnh rõ rệt hơn
-                const MAX_HEIGHT = 400;
+                const MAX_WIDTH = 300; // Giảm xuống 300px để đảm bảo không vượt quá 50k ký tự Google Sheet
+                const MAX_HEIGHT = 300;
 
                 let width = img.width;
                 let height = img.height;
@@ -34,8 +34,9 @@ export const compressImage = (file: File): Promise<string> => {
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
 
-                // Nén chất lượng ảnh
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                // Nén chất lượng ảnh (giảm xuống 0.7 để dung lượng nhẹ hơn)
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                console.log(`Image compressed: ${Math.round(dataUrl.length / 1024)}KB (${dataUrl.length} chars)`);
                 resolve(dataUrl);
             };
             img.onerror = (err) => reject(err);

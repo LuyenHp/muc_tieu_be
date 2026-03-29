@@ -240,14 +240,19 @@ const App: React.FC = () => {
     if (validTasks.length === 0) { alert('Vui lòng nhập ít nhất 1 mục tiêu'); return; }
 
     setLoading(true);
+    console.log('Submitting data for child:', formName);
+    console.log('Reward Image length:', formInfo.rewardImage?.length || 0);
+
     try {
       if (isEditing) {
+        console.log('Action: Update Profile');
         await updateChildProfile(formName, validTasks, formInfo, !isNewWeek);
         alert(isNewWeek ? 'Đã thiết lập tuần mới!' : 'Đã cập nhật cấu hình!');
         setIsEditing(false);
         setIsNewWeek(false);
         loadChildData(formName);
       } else {
+        console.log('Action: Create Child');
         await createChild(formName, validTasks, formInfo);
         alert('Đã tạo bé mới thành công!');
         setIsAddingChild(false);
